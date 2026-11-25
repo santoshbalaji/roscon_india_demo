@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>roscon_description</name>
+  <version>0.1.0</version>
+  <description>ABB IRB 2600-12/1.65 robot description and meshes for the ROSCon demo.</description>
+  <maintainer email="maintainer@example.com">ROSCon demo maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>roscon_collision</name>
+  <version>0.1.0</version>
+  <description>Simple C++ FCL self and environment collision visualization.</description>
+  <maintainer email="maintainer@example.com">ROSCon demo maintainers</maintainer>
+  <license>Apache-2.0</license>
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <depend>rclcpp</depend>
+  <depend>ament_index_cpp</depend>
+  <depend>sensor_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>visualization_msgs</depend>
+  <depend>urdf</depend>
+  <depend>libfcl-dev</depend>
+  <depend>libassimp-dev</depend>
+  <depend>yaml-cpp</depend>
+  <exec_depend>roscon_description</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>joint_state_publisher</exec_depend>
+  <exec_depend>roscon_rviz_plugins</exec_depend>
+  <exec_depend>rviz2</exec_depend>
+  <test_depend>ament_cmake_pytest</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
+  <test_depend>rclpy</test_depend>
+  <test_depend>python3-yaml</test_depend>
+  <export><build_type>ament_cmake</build_type></export>
+</package>

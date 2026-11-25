@@ -1,0 +1,7 @@
+<library path="collision_panel">
+  <class name="roscon_rviz_plugins/CollisionPanel"
+         type="roscon_rviz_plugins::CollisionPanel"
+         base_class_type="rviz_common::Panel">
+    <description>Collision status and URDF joint sliders in one RViz panel.</description>
+  </class>
+</library>
