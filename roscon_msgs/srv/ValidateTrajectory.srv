@@ -1,0 +1,7 @@
+# Empty trajectory validates the stored plan; empty backend uses the active checker.
+trajectory_msgs/JointTrajectory trajectory
+string backend
+---
+bool valid
+string message
+uint32 checked_states

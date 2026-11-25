@@ -2,7 +2,7 @@
 <package format="3">
   <name>roscon_rviz_plugins</name>
   <version>0.1.0</version>
-  <description>RViz panel for collision status and robot joint controls.</description>
+  <description>RViz panels for collision, kinematics, and motion planning controls.</description>
   <maintainer email="maintainer@example.com">ROSCon demo maintainers</maintainer>
   <license>Apache-2.0</license>
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -11,6 +11,9 @@
   <depend>pluginlib</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2</depend>
+  <depend>roscon_msgs</depend>
   <depend>std_srvs</depend>
   <depend>urdf</depend>
   <depend>qtbase5-dev</depend>

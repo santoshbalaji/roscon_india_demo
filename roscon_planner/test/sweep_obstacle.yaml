@@ -1,0 +1,5 @@
+objects:
+  - name: obstacle_between_endpoints
+    type: sphere
+    radius: 0.15
+    position: [1.0, 0.0, 0.0]

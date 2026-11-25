@@ -1,0 +1,6 @@
+<robot name="sweep_test">
+  <link name="base"/>
+  <link name="arm"><collision><origin xyz="1 0 0"/><geometry><sphere radius="0.1"/></geometry></collision></link>
+  <joint name="angle" type="revolute"><parent link="base"/><child link="arm"/>
+    <axis xyz="0 0 1"/><limit lower="-3.14" upper="3.14" effort="1" velocity="1"/></joint>
+</robot>

@@ -1,3 +1,4 @@
+<class_libraries>
 <library path="collision_panel">
   <class name="roscon_rviz_plugins/CollisionPanel"
          type="roscon_rviz_plugins::CollisionPanel"
@@ -5,3 +6,18 @@
     <description>Collision status and URDF joint sliders in one RViz panel.</description>
   </class>
 </library>
+
+<library path="kinematics_panel">
+  <class name="roscon_rviz_plugins/KinematicsPanel"
+         type="roscon_rviz_plugins::KinematicsPanel"
+         base_class_type="rviz_common::Panel">
+    <description>Joint and Cartesian controls, IK status, reset, and live solver readouts.</description>
+  </class>
+</library>
+<library path="planner_panel">
+  <class name="roscon_rviz_plugins/PlannerPanel" type="roscon_rviz_plugins::PlannerPanel" base_class_type="rviz_common::Panel">
+    <description>Pose targets, selectable collision checkers, hybrid planning, validation and playback.</description>
+  </class>
+</library>
+
+</class_libraries>

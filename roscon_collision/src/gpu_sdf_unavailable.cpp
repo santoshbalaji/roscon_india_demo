@@ -11,8 +11,4 @@ SdfResults GpuSdf::check(const std::vector<Sphere> &)
 {
   throw std::runtime_error("CUDA SDF support was not built.");
 }
-SdfResults checkSdfOnCpu(const std::vector<Sphere> &, const std::vector<SdfObject> &, const std::vector<SdfTriangle> &)
-{
-  throw std::runtime_error("The SDF evaluator requires a CUDA-enabled build.");
-}
 }

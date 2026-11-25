@@ -1,0 +1,8 @@
+# Joint configurations are used only to calculate repeatable Cartesian targets.
+# The planner must still solve IK and find/validate the path to each target.
+# Joint order: joint_1 ... joint_6, radians. Target frame: flange.
+home: [0.0, -1.0, 1.2, -1.0, 1.0, 0.0]
+targets:
+  transfer: [0.8, -0.6, 0.5, -1.0, 1.0, 0.0]
+  housing_approach: [0.8, -0.4, 0.5, -1.0, 1.0, 0.0]
+  housing_inspection: [0.8, -0.2, 0.5, -1.0, 1.0, 0.0]

@@ -1,0 +1,5 @@
+sensor_msgs/JointState joints
+uint32 seed_index
+float64 position_error
+float64 orientation_error
+float64 minimum_singular_value

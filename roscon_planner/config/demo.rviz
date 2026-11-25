@@ -1,0 +1,63 @@
+Panels:
+  - Class: roscon_rviz_plugins/PlannerPanel
+    Name: Motion planning
+  - Class: rviz_common/Displays
+    Name: Displays
+  - Class: rviz_common/Selection
+    Name: Selection
+Visualization Manager:
+  Class: ""
+  Global Options:
+    Fixed Frame: base_link
+    Background Color: 35; 38; 45
+    Frame Rate: 30
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+      Enabled: true
+      Cell Size: 0.25
+    - Class: rviz_default_plugins/RobotModel
+      Name: Robot
+      Enabled: true
+      Description Source: Topic
+      Description Topic:
+        Value: /robot_description
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+      Alpha: 0.75
+      Visual Enabled: true
+      Collision Enabled: false
+    - Class: rviz_default_plugins/InteractiveMarkers
+      Name: Target pose
+      Enabled: true
+      Interactive Markers Namespace: /planner_target
+      Show Descriptions: false
+      Show Axes: false
+      Show Visual Aids: true
+      Enable Transparency: true
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Planned tool path
+      Enabled: true
+      Topic:
+        Value: /planner/path_markers
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Collision environment
+      Enabled: true
+      Topic:
+        Value: /planner/environment
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+  Tools:
+    - Class: rviz_default_plugins/Interact
+    - Class: rviz_default_plugins/MoveCamera
+    - Class: rviz_default_plugins/Select
+  Views:
+    Current:
+      Class: rviz_default_plugins/Orbit
+      Distance: 3.8
+      Pitch: 0.4
+      Yaw: 2.6
+      Focal Point: {X: 0.3, Y: 0.0, Z: 0.65}
+Window Geometry:
+  Width: 1400
+  Height: 900

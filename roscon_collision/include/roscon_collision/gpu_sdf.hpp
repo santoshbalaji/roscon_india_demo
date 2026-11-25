@@ -41,7 +41,8 @@ struct SdfResults
   std::vector<unsigned char> collisions;
 };
 
-// Host evaluation for explicit validation, not a runtime fallback.
+// Explicit CPU evaluation, shared by validation and the synchronous IK checker.
+// The GPU backend never switches to CPU implicitly.
 SdfResults checkSdfOnCpu(
   const std::vector<Sphere> & world_spheres,
   const std::vector<SdfObject> & objects,

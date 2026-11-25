@@ -1,0 +1,15 @@
+roscon_planner:
+  ros__parameters:
+    base_link: base_link
+    tip_link: flange
+    collision_backend: fcl
+    initial_joints: [0.0, -1.0, 1.2, -1.0, 1.0, 0.0]
+    minimum_singular_value: 0.05
+    planning_seconds: 3.0
+    # Maximum joint increment in final edge validation, in radians.
+    validation_joint_step: 0.03
+    stomp_iterations: 12
+    stomp_rollouts: 6
+    noise_stddev: 0.04
+    chomp_iterations: 5
+    clearance_margin: 0.03

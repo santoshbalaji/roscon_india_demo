@@ -1,0 +1,8 @@
+geometry_msgs/PoseStamped target
+# Empty strings select rrt_connect and stomp.
+string ompl_planner
+string optimizer
+---
+bool success
+string message
+trajectory_msgs/JointTrajectory trajectory

@@ -1,0 +1,18 @@
+roscon_kinematics:
+  ros__parameters:
+    base_link: base_link
+    tip_link: flange
+    initial_joints: [0.0, -1.0, 1.2, -1.0, 1.0, 0.0]
+    position_scale: 0.1
+    position_weight: 1.0
+    orientation_weight: 1.0
+    posture_weight: 0.0001
+    characteristic_length: 1.0
+    minimum_singular_value: 0.05
+    joint_margin: 0.01
+    position_tolerance: 0.005
+    orientation_tolerance: 0.02
+    difference_step: 0.000001
+    max_iterations: 250
+    # Conservative robot-sphere cover used by the multiple-solution post-check.
+    collision_sphere_radius: 0.06

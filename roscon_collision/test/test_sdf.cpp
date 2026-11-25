@@ -100,3 +100,22 @@ TEST(GpuSdf, RotatedTranslatedEnvironment)
   EXPECT_NEAR(result.distances[1], 0.5, 1e-12);
   EXPECT_EQ(result.collisions[1], 0);
 }
+
+TEST(SdfCpu, SignedDistanceWorksWithoutCuda) {
+  std::vector<roscon_collision::SdfTriangle> triangles;
+  fcl::Sphered shape(1.0);
+  const auto object = roscon_collision::makeSdfObject(
+      shape, fcl::Transform3d::Identity(), triangles);
+  const std::vector<roscon_collision::Sphere> probes = {
+      {0.0, 0.0, 0.0, 0.25, 0},
+      {1.25, 0.0, 0.0, 0.25, 0},
+      {1.30, 0.0, 0.0, 0.25, 0}};
+  const auto result = roscon_collision::checkSdfOnCpu(probes, {object}, triangles);
+  ASSERT_EQ(result.distances.size(), 3u);
+  EXPECT_DOUBLE_EQ(result.distances[0], -1.0);
+  EXPECT_DOUBLE_EQ(result.distances[1], 0.25);
+  EXPECT_NEAR(result.distances[2], 0.30, 1e-12);
+  EXPECT_TRUE(result.collisions[0]);
+  EXPECT_TRUE(result.collisions[1]);
+  EXPECT_FALSE(result.collisions[2]);
+}

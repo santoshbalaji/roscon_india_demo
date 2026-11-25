@@ -68,3 +68,43 @@ consistently oriented, non-self-intersecting meshes.
 
 Robot model: [ROS-Industrial ABB](https://github.com/ros-industrial/abb).
 See [model attribution](roscon_description/NOTICE.md) for license details.
+
+## Constrained inverse kinematics
+
+The [roscon_kinematics package](roscon_kinematics/README.md) uses IPOPT for full-pose
+IK on the same ABB IRB 2600. Joint limits and minimum singular value are hard
+constraints. Its RViz Kinematics panel provides joint and Cartesian controls, live positions,
+solver diagnostics, reset, and an always-active interactive target. The 3D scene has
+no text overlays.
+Run it separately from the collision demo, so joint publishers do not conflict.
+
+```bash
+sudo apt-get install coinor-libipopt-dev
+cd /home/santosh/event_ws/roscon_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --packages-up-to roscon_kinematics --cmake-args -DCMAKE_BUILD_TYPE=Release
+source install/setup.bash
+ros2 launch roscon_kinematics demo.launch.py
+```
+
+The IK alternative-solution search now reuses `roscon_collision` SDF/sphere checks
+to reject self-colliding and environment-colliding candidates before listing them.
+The IK launch includes a visible workbench, pillar, and ball; see
+[`roscon_kinematics/README.md`](roscon_kinematics/README.md#collision-post-check-and-test-environment)
+for configuration, test targets, and the scope of post-checks.
+
+## Hybrid motion planning
+
+[`roscon_planner`](roscon_planner/README.md) adds selectable OMPL RRTConnect/RRTstar/PRM followed by
+STOMP, CHOMP-style refinement, or no optimizer, plus runtime FCL/sphere/SDF collision selection, sampled path
+validation, and an RViz panel for pose targets and trajectory playback. Launch
+`ros2 launch roscon_planner demo.launch.py` instead of the separate IK/collision
+demos. See the package README for build commands, validation resolution, and
+visualization-only timing.
+
+## Gearbox assembly planning cell
+
+The separate [roscon_gearbox_demo](roscon_gearbox_demo/README.md) package adds an
+open gearbox fixture, gears and workbench to the existing planner and RViz panel.
+Build with `colcon build --packages-up-to roscon_gearbox_demo`, then launch with
+`ros2 launch roscon_gearbox_demo demo.launch.py`.
