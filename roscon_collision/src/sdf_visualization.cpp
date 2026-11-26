@@ -4,13 +4,11 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace roscon_collision
-{
-visualization_msgs::msg::Marker makeSdfSlice(
-  const SdfObject & object, const std::vector<SdfTriangle> & triangles,
-  const fcl::AABBd & bounds, const fcl::Transform3d & pose,
-  double cell_size, double padding)
-{
+namespace roscon_collision {
+visualization_msgs::msg::Marker makeSdfSlice(const SdfObject &object,
+                                             const std::vector<SdfTriangle> &triangles,
+                                             const fcl::AABBd &bounds, const fcl::Transform3d &pose,
+                                             double cell_size, double padding) {
   if (!std::isfinite(cell_size) || cell_size <= 0.0 || !std::isfinite(padding) || padding <= 0.0) {
     throw std::runtime_error("SDF slice cell size and padding must be finite and positive");
   }
@@ -54,12 +52,12 @@ visualization_msgs::msg::Marker makeSdfSlice(
     color.b = 1.0 - strength;
     color.a = 0.8;
     if (distance < 0.0) {
-      color.r = 1.0;  // Inside: red, fading to white at the surface.
+      color.r = 1.0; // Inside: red, fading to white at the surface.
     } else {
-      color.b = 1.0;  // Outside: blue, fading to white at the surface.
+      color.b = 1.0; // Outside: blue, fading to white at the surface.
     }
     marker.colors.push_back(color);
   }
   return marker;
 }
-}
+} // namespace roscon_collision

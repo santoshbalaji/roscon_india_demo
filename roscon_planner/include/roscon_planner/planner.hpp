@@ -52,6 +52,8 @@ public:
   static bool knownBackend(const std::string &backend);
 
 private:
+  Path findGoalConfigurations(const Eigen::VectorXd &start, const roscon_kinematics::Target &target,
+                              const std::string &backend);
   roscon_kinematics::Settings ik_settings_;
   PlanSettings settings_;
   roscon_kinematics::Robot robot_;

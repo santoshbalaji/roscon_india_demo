@@ -10,7 +10,6 @@
 #include <ompl/geometric/planners/rrt/RRTConnect.h>
 #include <ompl/geometric/planners/rrt/RRTstar.h>
 #include <roscon_kinematics/multi_seed.hpp>
-#include <sstream>
 #include <stdexcept>
 
 namespace roscon_planner {
@@ -120,27 +119,10 @@ Validation Planner::validate(const Path &path, const std::string &backend) {
                         return validState(q, backend, reason);
                       });
 }
-PlanResult Planner::plan(const Eigen::VectorXd &start, const roscon_kinematics::Target &target,
-                         const std::string &backend, const std::string &algorithm,
-                         const std::string &optimizer) {
-  PlanResult result;
-  if (!knownAlgorithm(algorithm) || !knownOptimizer(optimizer)) {
-    result.message = "Unknown OMPL planner or optimizer";
-    return result;
-  }
-  const bool refine = optimizer != "none";
+Path Planner::findGoalConfigurations(const Eigen::VectorXd &start,
+                                     const roscon_kinematics::Target &target,
+                                     const std::string &backend) {
   std::string reason;
-  if (!validState(start, backend, reason)) {
-    result.message = "Invalid start: " + reason;
-    return result;
-  }
-  if (!target.position.allFinite() || !target.rotation.allFinite() ||
-      !(target.rotation.transpose() * target.rotation)
-           .isApprox(Eigen::Matrix3d::Identity(), 1e-6) ||
-      std::abs(target.rotation.determinant() - 1.0) > 1e-6) {
-    result.message = "Invalid target pose";
-    return result;
-  }
   // Nearby seeds help retain the current wrist/elbow branch. Global seeds
   // alone can find only a disconnected branch even for a reachable target.
   Path seeds{start};
@@ -173,15 +155,40 @@ PlanResult Planner::plan(const Eigen::VectorXd &start, const roscon_kinematics::
       goals.push_back(solution.joints);
     }
   }
-  if (goals.empty()) {
-    result.message = "No collision-free IK goal found for this pose";
-    return result;
-  }
   // Try nearby IK branches first. A wrist-flipped goal may be in a different
   // connected component when the singularity margin is enforced.
   std::sort(goals.begin(), goals.end(), [&](const Eigen::VectorXd &a, const Eigen::VectorXd &b) {
     return (a - start).squaredNorm() < (b - start).squaredNorm();
   });
+  return goals;
+}
+
+PlanResult Planner::plan(const Eigen::VectorXd &start, const roscon_kinematics::Target &target,
+                         const std::string &backend, const std::string &algorithm,
+                         const std::string &optimizer) {
+  PlanResult result;
+  if (!knownAlgorithm(algorithm) || !knownOptimizer(optimizer)) {
+    result.message = "Unknown OMPL planner or optimizer";
+    return result;
+  }
+  const bool refine = optimizer != "none";
+  std::string reason;
+  if (!validState(start, backend, reason)) {
+    result.message = "Invalid start: " + reason;
+    return result;
+  }
+  if (!target.position.allFinite() || !target.rotation.allFinite() ||
+      !(target.rotation.transpose() * target.rotation)
+           .isApprox(Eigen::Matrix3d::Identity(), 1e-6) ||
+      std::abs(target.rotation.determinant() - 1.0) > 1e-6) {
+    result.message = "Invalid target pose";
+    return result;
+  }
+  const Path goals = findGoalConfigurations(start, target, backend);
+  if (goals.empty()) {
+    result.message = "No collision-free IK goal found for this pose";
+    return result;
+  }
   namespace ob = ompl::base;
   namespace og = ompl::geometric;
   auto space = std::make_shared<ob::RealVectorStateSpace>(start.size());

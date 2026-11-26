@@ -3,14 +3,12 @@
 #include <cmath>
 #include <stdexcept>
 
-namespace roscon_collision
-{
-std::vector<Sphere> makeSphereModel(fcl::CollisionGeometryd & geometry, double radius, int body)
-{
+namespace roscon_collision {
+std::vector<Sphere> makeSphereModel(fcl::CollisionGeometryd &geometry, double radius, int body) {
   if (!std::isfinite(radius) || radius <= 0.0) {
     throw std::runtime_error("sphere_radius must be finite and positive");
   }
-  const auto * sphere_geometry = dynamic_cast<const fcl::Sphered *>(&geometry);
+  const auto *sphere_geometry = dynamic_cast<const fcl::Sphered *>(&geometry);
   if (sphere_geometry != nullptr) {
     return {{0.0, 0.0, 0.0, sphere_geometry->radius, body}};
   }
@@ -40,17 +38,15 @@ std::vector<Sphere> makeSphereModel(fcl::CollisionGeometryd & geometry, double r
   for (int x = 0; x < counts[0]; ++x) {
     for (int y = 0; y < counts[1]; ++y) {
       for (int z = 0; z < counts[2]; ++z) {
-        spheres.push_back({minimum.x() + (x + 0.5) * cell.x(),
-          minimum.y() + (y + 0.5) * cell.y(), minimum.z() + (z + 0.5) * cell.z(),
-          cell_radius, body});
+        spheres.push_back({minimum.x() + (x + 0.5) * cell.x(), minimum.y() + (y + 0.5) * cell.y(),
+                           minimum.z() + (z + 0.5) * cell.z(), cell_radius, body});
       }
     }
   }
   return spheres;
 }
 
-SphereTransform makeSphereTransform(const fcl::Transform3d & transform)
-{
+SphereTransform makeSphereTransform(const fcl::Transform3d &transform) {
   SphereTransform result;
   for (int row = 0; row < 3; ++row) {
     for (int column = 0; column < 4; ++column) {
@@ -59,4 +55,4 @@ SphereTransform makeSphereTransform(const fcl::Transform3d & transform)
   }
   return result;
 }
-}  // namespace roscon_collision
+} // namespace roscon_collision

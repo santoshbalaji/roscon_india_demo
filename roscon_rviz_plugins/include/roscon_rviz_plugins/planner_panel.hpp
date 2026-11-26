@@ -26,6 +26,7 @@ public:
 private:
   void update();
   void setBusy(bool busy);
+  void updateControls();
   void fillTarget(const geometry_msgs::msg::PoseStamped &pose);
   geometry_msgs::msg::PoseStamped targetMessage() const;
   void plan();

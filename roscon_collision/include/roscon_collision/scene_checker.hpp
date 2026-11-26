@@ -45,6 +45,7 @@ private:
   };
   std::vector<SphereTransform> updateTransforms(const std::vector<std::string> &names,
                                                 const std::vector<double> &positions);
+  bool ignoreSelfPair(const Body &first, const Body &second) const;
   void loadRobot();
   void loadEnvironment(const std::string &path);
   void computeLinkTransforms(const urdf::LinkConstSharedPtr &link,

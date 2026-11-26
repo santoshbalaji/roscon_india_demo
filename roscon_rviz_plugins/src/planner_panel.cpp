@@ -181,20 +181,13 @@ void PlannerPanel::onInitialize() {
 }
 void PlannerPanel::setBusy(bool busy) {
   busy_ = busy;
-  if (busy) {
-    for (auto *button : {plan_, validate_, play_, stop_, reset_, copy_, demo_}) {
-      button->setEnabled(false);
-    }
-    backend_->setEnabled(false);
-    algorithm_->setEnabled(false);
-    optimizer_->setEnabled(false);
-    for (auto *field : target_) {
-      field->setEnabled(false);
-    }
-  }
+  updateControls();
 }
 void PlannerPanel::update() {
   executor_.spin_some();
+  updateControls();
+}
+void PlannerPanel::updateControls() {
   const bool connected =
       current_ready_ &&
       std::chrono::duration<double>(std::chrono::steady_clock::now() - last_status_).count() < 2.0;

@@ -151,6 +151,11 @@ void SceneChecker::computeLinkTransforms(const urdf::LinkConstSharedPtr &link,
   }
 }
 
+bool SceneChecker::ignoreSelfPair(const Body &first, const Body &second) const {
+  return first.link_name == second.link_name ||
+         ignored_pairs_.count(orderedPair(first.link_name, second.link_name)) != 0;
+}
+
 SceneChecker::SceneChecker(const std::string &xml, const std::string &environment_file,
                            double sphere_radius) {
   if (!robot_.initString(xml)) {
@@ -172,8 +177,7 @@ SceneChecker::SceneChecker(const std::string &xml, const std::string &environmen
     for (size_t second = first + 1; second < robot_bodies_.size(); ++second) {
       const auto &a = robot_bodies_[first];
       const auto &b = robot_bodies_[second];
-      if (a.link_name == b.link_name ||
-          ignored_pairs_.count(orderedPair(a.link_name, b.link_name))) {
+      if (ignoreSelfPair(a, b)) {
         continue;
       }
       for (size_t i = starts[first]; i < starts[first + 1]; ++i) {
@@ -261,8 +265,7 @@ CollisionReport SceneChecker::check(const std::vector<std::string> &names,
       for (size_t second = first + 1; second < robot_bodies_.size(); ++second) {
         const auto &a = robot_bodies_[first];
         const auto &b = robot_bodies_[second];
-        if (a.link_name == b.link_name ||
-            ignored_pairs_.count(orderedPair(a.link_name, b.link_name))) {
+        if (ignoreSelfPair(a, b)) {
           continue;
         }
         if (collides(a, b)) {
@@ -333,8 +336,7 @@ double SceneChecker::clearance(const std::vector<std::string> &names,
       for (size_t second = first + 1; second < robot_bodies_.size(); ++second) {
         const auto &a = robot_bodies_[first];
         const auto &b = robot_bodies_[second];
-        if (a.link_name == b.link_name ||
-            ignored_pairs_.count(orderedPair(a.link_name, b.link_name))) {
+        if (ignoreSelfPair(a, b)) {
           continue;
         }
         minimum = std::min(minimum, distance(a, b));

@@ -10,55 +10,53 @@
 #endif
 namespace roscon_collision {
 // These small math functions can run on the GPU or the host validation path.
-ROSCON_SDF_HOST_DEVICE inline SdfPoint subtract(SdfPoint first, SdfPoint second)
-{
+ROSCON_SDF_HOST_DEVICE inline SdfPoint subtract(SdfPoint first, SdfPoint second) {
   return {first.x - second.x, first.y - second.y, first.z - second.z};
 }
 
-ROSCON_SDF_HOST_DEVICE inline double dot(SdfPoint first, SdfPoint second)
-{
+ROSCON_SDF_HOST_DEVICE inline double dot(SdfPoint first, SdfPoint second) {
   return first.x * second.x + first.y * second.y + first.z * second.z;
 }
 
-ROSCON_SDF_HOST_DEVICE inline SdfPoint cross(SdfPoint first, SdfPoint second)
-{
-  return {first.y * second.z - first.z * second.y,
-    first.z * second.x - first.x * second.z, first.x * second.y - first.y * second.x};
+ROSCON_SDF_HOST_DEVICE inline SdfPoint cross(SdfPoint first, SdfPoint second) {
+  return {first.y * second.z - first.z * second.y, first.z * second.x - first.x * second.z,
+          first.x * second.y - first.y * second.x};
 }
 
-ROSCON_SDF_HOST_DEVICE inline double length(SdfPoint vector)
-{
+ROSCON_SDF_HOST_DEVICE inline double length(SdfPoint vector) {
   return sqrt(dot(vector, vector));
 }
 
-ROSCON_SDF_HOST_DEVICE inline double segmentDistance(SdfPoint point, SdfPoint start, SdfPoint end)
-{
+ROSCON_SDF_HOST_DEVICE inline double segmentDistance(SdfPoint point, SdfPoint start, SdfPoint end) {
   const SdfPoint edge = subtract(end, start);
   const double fraction = fmax(0.0, fmin(1.0, dot(subtract(point, start), edge) / dot(edge, edge)));
   const SdfPoint closest = {start.x + fraction * edge.x, start.y + fraction * edge.y,
-    start.z + fraction * edge.z};
+                            start.z + fraction * edge.z};
   return length(subtract(point, closest));
 }
 
-ROSCON_SDF_HOST_DEVICE inline double triangleDistance(SdfPoint point, const SdfTriangle & triangle)
-{
+ROSCON_SDF_HOST_DEVICE inline double triangleDistance(SdfPoint point, const SdfTriangle &triangle) {
   const SdfPoint normal = cross(subtract(triangle.b, triangle.a), subtract(triangle.c, triangle.a));
   const double projection_scale = dot(subtract(point, triangle.a), normal) / dot(normal, normal);
   const SdfPoint projection = {point.x - projection_scale * normal.x,
-    point.y - projection_scale * normal.y, point.z - projection_scale * normal.z};
-  const double side_a = dot(cross(subtract(triangle.b, triangle.a), subtract(projection, triangle.a)), normal);
-  const double side_b = dot(cross(subtract(triangle.c, triangle.b), subtract(projection, triangle.b)), normal);
-  const double side_c = dot(cross(subtract(triangle.a, triangle.c), subtract(projection, triangle.c)), normal);
+                               point.y - projection_scale * normal.y,
+                               point.z - projection_scale * normal.z};
+  const double side_a =
+      dot(cross(subtract(triangle.b, triangle.a), subtract(projection, triangle.a)), normal);
+  const double side_b =
+      dot(cross(subtract(triangle.c, triangle.b), subtract(projection, triangle.b)), normal);
+  const double side_c =
+      dot(cross(subtract(triangle.a, triangle.c), subtract(projection, triangle.c)), normal);
   if (side_a >= 0.0 && side_b >= 0.0 && side_c >= 0.0) {
     return fabs(projection_scale) * length(normal);
   }
   return fmin(segmentDistance(point, triangle.a, triangle.b),
-    fmin(segmentDistance(point, triangle.b, triangle.c), segmentDistance(point, triangle.c, triangle.a)));
+              fmin(segmentDistance(point, triangle.b, triangle.c),
+                   segmentDistance(point, triangle.c, triangle.a)));
 }
 
-ROSCON_SDF_HOST_DEVICE inline double signedDistance(
-  SdfPoint point, const SdfObject & object, const SdfTriangle * triangles)
-{
+ROSCON_SDF_HOST_DEVICE inline double signedDistance(SdfPoint point, const SdfObject &object,
+                                                    const SdfTriangle *triangles) {
   if (object.shape == SdfShape::Sphere) {
     return length(point) - object.radius;
   }
@@ -75,12 +73,12 @@ ROSCON_SDF_HOST_DEVICE inline double signedDistance(
     const double outside_radial = fmax(radial, 0.0);
     const double outside_axial = fmax(axial, 0.0);
     return sqrt(outside_radial * outside_radial + outside_axial * outside_axial) +
-      fmin(fmax(radial, axial), 0.0);
+           fmin(fmax(radial, axial), 0.0);
   }
   double minimum_distance = INFINITY;
   double solid_angle = 0.0;
   for (int index = 0; index < object.triangle_count; ++index) {
-    const SdfTriangle & triangle = triangles[object.triangle_start + index];
+    const SdfTriangle &triangle = triangles[object.triangle_start + index];
     minimum_distance = fmin(minimum_distance, triangleDistance(point, triangle));
     if (minimum_distance < 1e-12) {
       return 0.0;
@@ -88,8 +86,8 @@ ROSCON_SDF_HOST_DEVICE inline double signedDistance(
     const SdfPoint a = subtract(triangle.a, point);
     const SdfPoint b = subtract(triangle.b, point);
     const SdfPoint c = subtract(triangle.c, point);
-    const double denominator = length(a) * length(b) * length(c) +
-      dot(a, b) * length(c) + dot(b, c) * length(a) + dot(c, a) * length(b);
+    const double denominator = length(a) * length(b) * length(c) + dot(a, b) * length(c) +
+                               dot(b, c) * length(a) + dot(c, a) * length(b);
     solid_angle += 2.0 * atan2(dot(a, cross(b, c)), denominator);
   }
   // For a closed oriented surface, the angle sum is +/-4*pi inside and zero outside.
@@ -99,17 +97,18 @@ ROSCON_SDF_HOST_DEVICE inline double signedDistance(
   return minimum_distance;
 }
 
-ROSCON_SDF_HOST_DEVICE inline double sphereCenterDistance(
-  const Sphere & sphere, const SdfObject & object, const SdfTriangle * triangles)
-{
-  const SphereTransform & transform = object.world_to_local;
-  const SdfPoint local = {
-    transform.values[0] * sphere.x + transform.values[1] * sphere.y + transform.values[2] * sphere.z + transform.values[3],
-    transform.values[4] * sphere.x + transform.values[5] * sphere.y + transform.values[6] * sphere.z + transform.values[7],
-    transform.values[8] * sphere.x + transform.values[9] * sphere.y + transform.values[10] * sphere.z + transform.values[11]};
+ROSCON_SDF_HOST_DEVICE inline double
+sphereCenterDistance(const Sphere &sphere, const SdfObject &object, const SdfTriangle *triangles) {
+  const SphereTransform &transform = object.world_to_local;
+  const SdfPoint local = {transform.values[0] * sphere.x + transform.values[1] * sphere.y +
+                              transform.values[2] * sphere.z + transform.values[3],
+                          transform.values[4] * sphere.x + transform.values[5] * sphere.y +
+                              transform.values[6] * sphere.z + transform.values[7],
+                          transform.values[8] * sphere.x + transform.values[9] * sphere.y +
+                              transform.values[10] * sphere.z + transform.values[11]};
   return signedDistance(local, object, triangles);
 }
 
-}
+} // namespace roscon_collision
 #undef ROSCON_SDF_HOST_DEVICE
 #endif

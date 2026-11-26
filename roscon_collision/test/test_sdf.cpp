@@ -1,17 +1,15 @@
-#include <gtest/gtest.h>
-#include <cmath>
 #include "roscon_collision/gpu_sdf.hpp"
 #include "roscon_collision/gpu_spheres.hpp"
 #include "roscon_collision/sdf_model.hpp"
+#include <cmath>
+#include <gtest/gtest.h>
 
-static std::shared_ptr<fcl::BVHModel<fcl::OBBRSSd>> makeCube(bool open)
-{
-  const std::vector<fcl::Vector3d> vertices = {
-    {-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1},
-    {-1, -1, 1}, {1, -1, 1}, {1, 1, 1}, {-1, 1, 1}};
-  std::vector<fcl::Triangle> faces = {
-    {0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 1, 5}, {0, 5, 4},
-    {1, 2, 6}, {1, 6, 5}, {2, 3, 7}, {2, 7, 6}, {3, 0, 4}, {3, 4, 7}};
+static std::shared_ptr<fcl::BVHModel<fcl::OBBRSSd>> makeCube(bool open) {
+  const std::vector<fcl::Vector3d> vertices = {{-1, -1, -1}, {1, -1, -1}, {1, 1, -1}, {-1, 1, -1},
+                                               {-1, -1, 1},  {1, -1, 1},  {1, 1, 1},  {-1, 1, 1}};
+  std::vector<fcl::Triangle> faces = {{0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7},
+                                      {0, 1, 5}, {0, 5, 4}, {1, 2, 6}, {1, 6, 5},
+                                      {2, 3, 7}, {2, 7, 6}, {3, 0, 4}, {3, 4, 7}};
   if (open) {
     faces.pop_back();
   }
@@ -22,23 +20,22 @@ static std::shared_ptr<fcl::BVHModel<fcl::OBBRSSd>> makeCube(bool open)
   return mesh;
 }
 
-TEST(SdfModel, RejectsOpenMeshes)
-{
+TEST(SdfModel, RejectsOpenMeshes) {
   std::vector<roscon_collision::SdfTriangle> triangles;
-  EXPECT_THROW(roscon_collision::makeSdfObject(
-    *makeCube(true), fcl::Transform3d::Identity(), triangles), std::runtime_error);
+  EXPECT_THROW(
+      roscon_collision::makeSdfObject(*makeCube(true), fcl::Transform3d::Identity(), triangles),
+      std::runtime_error);
   EXPECT_TRUE(triangles.empty());
-  const auto object = roscon_collision::makeSdfObject(
-    *makeCube(false), fcl::Transform3d::Identity(), triangles);
+  const auto object =
+      roscon_collision::makeSdfObject(*makeCube(false), fcl::Transform3d::Identity(), triangles);
   EXPECT_EQ(object.triangle_count, 12);
   EXPECT_EQ(triangles.size(), 12u);
 }
 
-TEST(GpuSdf, SignedDistancesTangencyContainmentAndMesh)
-{
+TEST(GpuSdf, SignedDistancesTangencyContainmentAndMesh) {
   try {
     roscon_collision::GpuSpheres::deviceName();
-  } catch (const std::exception & exception) {
+  } catch (const std::exception &exception) {
     GTEST_SKIP() << exception.what();
   }
   std::vector<roscon_collision::SdfTriangle> triangles;
@@ -47,14 +44,13 @@ TEST(GpuSdf, SignedDistancesTangencyContainmentAndMesh)
   fcl::Cylinderd cylinder(1, 2);
   const auto pose = fcl::Transform3d::Identity();
   const std::vector<roscon_collision::SdfObject> objects = {
-    roscon_collision::makeSdfObject(box, pose, triangles),
-    roscon_collision::makeSdfObject(sphere, pose, triangles),
-    roscon_collision::makeSdfObject(cylinder, pose, triangles),
-    roscon_collision::makeSdfObject(*makeCube(false), pose, triangles)};
+      roscon_collision::makeSdfObject(box, pose, triangles),
+      roscon_collision::makeSdfObject(sphere, pose, triangles),
+      roscon_collision::makeSdfObject(cylinder, pose, triangles),
+      roscon_collision::makeSdfObject(*makeCube(false), pose, triangles)};
   const std::vector<roscon_collision::Sphere> probes = {
-    {0, 0, 0, 0.25, 0}, {1.25, 0, 0, 0.25, 0}, {1.26, 0, 0, 0.25, 0},
-    {1.2, 1.2, 0, 0.25, 0}, {0, 0, 1.25, 0.25, 0}, {1.2, 0, 1.2, 0.25, 0},
-    {1, 0, 0, 0.1, 0}, {1, 1, 1, 0.1, 0}};
+      {0, 0, 0, 0.25, 0},    {1.25, 0, 0, 0.25, 0},  {1.26, 0, 0, 0.25, 0}, {1.2, 1.2, 0, 0.25, 0},
+      {0, 0, 1.25, 0.25, 0}, {1.2, 0, 1.2, 0.25, 0}, {1, 0, 0, 0.1, 0},     {1, 1, 1, 0.1, 0}};
   roscon_collision::GpuSdf gpu;
   gpu.initialize(objects, triangles, probes.size());
   const auto actual = gpu.check(probes);
@@ -65,13 +61,13 @@ TEST(GpuSdf, SignedDistancesTangencyContainmentAndMesh)
   }
   for (int object = 0; object < 4; ++object) {
     EXPECT_NEAR(actual.distances[object], -1.0, 1e-12);
-    EXPECT_EQ(actual.collisions[object], 1);  // Fully inside the environment solid.
+    EXPECT_EQ(actual.collisions[object], 1); // Fully inside the environment solid.
     EXPECT_NEAR(actual.distances[4 + object], 0.25, 1e-12);
-    EXPECT_EQ(actual.collisions[4 + object], 1);  // Tangency.
-    EXPECT_EQ(actual.collisions[8 + object], 0);  // Separated.
+    EXPECT_EQ(actual.collisions[4 + object], 1); // Tangency.
+    EXPECT_EQ(actual.collisions[8 + object], 0); // Separated.
   }
-  EXPECT_NEAR(actual.distances[12], std::sqrt(0.08), 1e-12);  // Box corner.
-  EXPECT_NEAR(actual.distances[22], std::sqrt(0.08), 1e-12);  // Cylinder rim.
+  EXPECT_NEAR(actual.distances[12], std::sqrt(0.08), 1e-12); // Box corner.
+  EXPECT_NEAR(actual.distances[22], std::sqrt(0.08), 1e-12); // Cylinder rim.
   for (std::size_t probe = 0; probe < probes.size(); ++probe) {
     EXPECT_NEAR(actual.distances[probe * 4], actual.distances[probe * 4 + 3], 1e-12);
   }
@@ -79,17 +75,17 @@ TEST(GpuSdf, SignedDistancesTangencyContainmentAndMesh)
   EXPECT_TRUE(gpu.check(probes).collisions.empty());
 }
 
-TEST(GpuSdf, RotatedTranslatedEnvironment)
-{
+TEST(GpuSdf, RotatedTranslatedEnvironment) {
   try {
     roscon_collision::GpuSpheres::deviceName();
-  } catch (const std::exception & exception) {
+  } catch (const std::exception &exception) {
     GTEST_SKIP() << exception.what();
   }
   fcl::Boxd box(2, 4, 6);
   fcl::Transform3d pose = fcl::Transform3d::Identity();
   pose.translation() = Eigen::Vector3d(3, -2, 1);
-  pose.linear() = Eigen::AngleAxisd(1.5707963267948966, Eigen::Vector3d::UnitZ()).toRotationMatrix();
+  pose.linear() =
+      Eigen::AngleAxisd(1.5707963267948966, Eigen::Vector3d::UnitZ()).toRotationMatrix();
   std::vector<roscon_collision::SdfTriangle> triangles;
   const auto object = roscon_collision::makeSdfObject(box, pose, triangles);
   roscon_collision::GpuSdf gpu;
@@ -104,12 +100,10 @@ TEST(GpuSdf, RotatedTranslatedEnvironment)
 TEST(SdfCpu, SignedDistanceWorksWithoutCuda) {
   std::vector<roscon_collision::SdfTriangle> triangles;
   fcl::Sphered shape(1.0);
-  const auto object = roscon_collision::makeSdfObject(
-      shape, fcl::Transform3d::Identity(), triangles);
+  const auto object =
+      roscon_collision::makeSdfObject(shape, fcl::Transform3d::Identity(), triangles);
   const std::vector<roscon_collision::Sphere> probes = {
-      {0.0, 0.0, 0.0, 0.25, 0},
-      {1.25, 0.0, 0.0, 0.25, 0},
-      {1.30, 0.0, 0.0, 0.25, 0}};
+      {0.0, 0.0, 0.0, 0.25, 0}, {1.25, 0.0, 0.0, 0.25, 0}, {1.30, 0.0, 0.0, 0.25, 0}};
   const auto result = roscon_collision::checkSdfOnCpu(probes, {object}, triangles);
   ASSERT_EQ(result.distances.size(), 3u);
   EXPECT_DOUBLE_EQ(result.distances[0], -1.0);

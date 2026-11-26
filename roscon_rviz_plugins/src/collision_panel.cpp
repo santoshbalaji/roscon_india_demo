@@ -1,23 +1,21 @@
 #include "roscon_rviz_plugins/collision_panel.hpp"
 
-#include <algorithm>
-#include <cmath>
-#include <functional>
-#include <QHeaderView>
 #include <QHBoxLayout>
+#include <QHeaderView>
 #include <QScrollArea>
 #include <QSignalBlocker>
 #include <QStringList>
+#include <algorithm>
+#include <cmath>
+#include <functional>
 #include <pluginlib/class_list_macros.hpp>
-#include <urdf/model.h>
 #include <rviz_common/display_context.hpp>
 #include <rviz_common/display_group.hpp>
+#include <urdf/model.h>
 
-namespace roscon_rviz_plugins
-{
-CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
-{
-  auto * layout = new QVBoxLayout(this);
+namespace roscon_rviz_plugins {
+CollisionPanel::CollisionPanel(QWidget *parent) : rviz_common::Panel(parent) {
+  auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(8, 8, 8, 8);
   layout->setSpacing(8);
 
@@ -44,8 +42,8 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
   layout->addWidget(tabs_, 1);
 
   // Joint controls get the full available height instead of sharing it with a table.
-  auto * joints_page = new QWidget(tabs_);
-  auto * joints_layout = new QVBoxLayout(joints_page);
+  auto *joints_page = new QWidget(tabs_);
+  auto *joints_layout = new QVBoxLayout(joints_page);
   tabs_->addTab(joints_page, "Joints");
   robot_label_ = new QLabel("Waiting for /robot_description", joints_page);
   robot_label_->setWordWrap(true);
@@ -57,10 +55,10 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
   publishing_label_ = new QLabel("Waiting for robot", joints_page);
   publishing_label_->setWordWrap(true);
   joints_layout->addWidget(publishing_label_);
-  auto * scroll_area = new QScrollArea(joints_page);
+  auto *scroll_area = new QScrollArea(joints_page);
   scroll_area->setWidgetResizable(true);
   scroll_area->setFrameShape(QFrame::NoFrame);
-  auto * joint_widget = new QWidget(scroll_area);
+  auto *joint_widget = new QWidget(scroll_area);
   joint_layout_ = new QVBoxLayout(joint_widget);
   joint_layout_->setContentsMargins(0, 0, 0, 0);
   joint_layout_->setSpacing(10);
@@ -73,8 +71,8 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
   connect(reset_button_, &QPushButton::clicked, this, &CollisionPanel::resetJoints);
   joints_layout->addWidget(reset_button_);
 
-  auto * collisions_page = new QWidget(tabs_);
-  auto * collisions_layout = new QVBoxLayout(collisions_page);
+  auto *collisions_page = new QWidget(tabs_);
+  auto *collisions_layout = new QVBoxLayout(collisions_page);
   tabs_->addTab(collisions_page, "Collisions");
   collision_table_ = new QTableWidget(0, 3, collisions_page);
   collision_table_->setObjectName("collision_pairs");
@@ -84,12 +82,12 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
   collision_table_->setEditTriggers(QAbstractItemView::NoEditTriggers);
   collision_table_->setSelectionBehavior(QAbstractItemView::SelectRows);
   collisions_layout->addWidget(collision_table_, 1);
-  auto * legend = new QLabel(
-    "Magenta: self collision\nRed: environment collision\nYellow: both", collisions_page);
+  auto *legend = new QLabel("Magenta: self collision\nRed: environment collision\nYellow: both",
+                            collisions_page);
   collisions_layout->addWidget(legend);
 
   connect(backend_selector_, QOverload<int>::of(&QComboBox::currentIndexChanged), this,
-    [this](int index) {requestBackend(index);});
+          [this](int index) { requestBackend(index); });
 
   // ROS callbacks and widget updates run on the Qt thread. No worker thread is needed.
   timer_ = new QTimer(this);
@@ -100,7 +98,7 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
     }
     try {
       update();
-    } catch (const std::exception & exception) {
+    } catch (const std::exception &exception) {
       // ROS can shut down between the check above and a publisher operation.
       // Never let an exception escape a Qt event callback.
       timer_->stop();
@@ -113,16 +111,14 @@ CollisionPanel::CollisionPanel(QWidget * parent) : rviz_common::Panel(parent)
   });
 }
 
-CollisionPanel::~CollisionPanel()
-{
+CollisionPanel::~CollisionPanel() {
   timer_->stop();
   if (node_) {
     executor_.remove_node(node_);
   }
 }
 
-void CollisionPanel::onInitialize()
-{
+void CollisionPanel::onInitialize() {
   if (node_) {
     return;
   }
@@ -131,25 +127,25 @@ void CollisionPanel::onInitialize()
   node_ = std::make_shared<rclcpp::Node>("roscon_collision_panel_" + std::to_string(panel_number));
   joint_publisher_ = node_->create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
   description_subscription_ = node_->create_subscription<std_msgs::msg::String>(
-    "/robot_description", rclcpp::QoS(1).transient_local(),
-    std::bind(&CollisionPanel::loadRobot, this, std::placeholders::_1));
+      "/robot_description", rclcpp::QoS(1).transient_local(),
+      std::bind(&CollisionPanel::loadRobot, this, std::placeholders::_1));
   status_subscription_ = node_->create_subscription<std_msgs::msg::String>(
-    "/collision_status", rclcpp::QoS(1).transient_local(),
-    std::bind(&CollisionPanel::receiveStatus, this, std::placeholders::_1));
+      "/collision_status", rclcpp::QoS(1).transient_local(),
+      std::bind(&CollisionPanel::receiveStatus, this, std::placeholders::_1));
   joint_subscription_ = node_->create_subscription<sensor_msgs::msg::JointState>(
-    "/joint_states", rclcpp::SensorDataQoS(),
-    std::bind(&CollisionPanel::receiveJointState, this, std::placeholders::_1));
-  backend_client_ = node_->create_client<std_srvs::srv::SetBool>("/roscon_collision/use_gpu_spheres");
+      "/joint_states", rclcpp::SensorDataQoS(),
+      std::bind(&CollisionPanel::receiveJointState, this, std::placeholders::_1));
+  backend_client_ =
+      node_->create_client<std_srvs::srv::SetBool>("/roscon_collision/use_gpu_spheres");
   sdf_client_ = node_->create_client<std_srvs::srv::SetBool>("/roscon_collision/use_sdf");
   backend_subscription_ = node_->create_subscription<std_msgs::msg::String>(
-    "/collision_backend", rclcpp::QoS(1).transient_local(),
-    std::bind(&CollisionPanel::receiveBackend, this, std::placeholders::_1));
+      "/collision_backend", rclcpp::QoS(1).transient_local(),
+      std::bind(&CollisionPanel::receiveBackend, this, std::placeholders::_1));
   executor_.add_node(node_);
   timer_->start(50);
 }
 
-void CollisionPanel::receiveBackend(const std_msgs::msg::String::SharedPtr message)
-{
+void CollisionPanel::receiveBackend(const std_msgs::msg::String::SharedPtr message) {
   confirmed_backend_ = 0;
   if (message->data.find("gpu_spheres") == 0) {
     confirmed_backend_ = 1;
@@ -161,15 +157,14 @@ void CollisionPanel::receiveBackend(const std_msgs::msg::String::SharedPtr messa
   updateVisualization();
 }
 
-void CollisionPanel::updateVisualization()
-{
+void CollisionPanel::updateVisualization() {
   if (getDisplayContext() == nullptr || visualization_backend_ == confirmed_backend_) {
     return;
   }
   // These are the display names in collision.rviz. Sphere mode hides the robot mesh too.
-  rviz_common::DisplayGroup * displays = getDisplayContext()->getRootDisplayGroup();
+  rviz_common::DisplayGroup *displays = getDisplayContext()->getRootDisplayGroup();
   for (int index = 0; index < displays->numDisplays(); ++index) {
-    rviz_common::Display * display = displays->getDisplayAt(index);
+    rviz_common::Display *display = displays->getDisplayAt(index);
     if (display->getName() == "Robot description") {
       display->setEnabled(confirmed_backend_ == 0);
     } else if (display->getName() == "FCL collision geometry") {
@@ -184,8 +179,7 @@ void CollisionPanel::updateVisualization()
   visualization_backend_ = confirmed_backend_;
 }
 
-void CollisionPanel::requestBackend(int backend)
-{
+void CollisionPanel::requestBackend(int backend) {
   // Keep the selector on the confirmed mode until the node accepts the change.
   const QSignalBlocker blocker(backend_selector_);
   backend_selector_->setCurrentIndex(confirmed_backend_);
@@ -202,15 +196,15 @@ void CollisionPanel::requestBackend(int backend)
   backend_selector_->setEnabled(false);
   auto request = std::make_shared<std_srvs::srv::SetBool::Request>();
   request->data = backend != 0;
-  const auto pending = client->async_send_request(request,
-    [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
-      backend_selector_->setEnabled(true);
-      const auto response = future.get();
-      if (!response->success) {
-        backend_error_->setText(QString::fromStdString(response->message));
-        backend_error_->show();
-      }
-    });
+  const auto pending = client->async_send_request(
+      request, [this](rclcpp::Client<std_srvs::srv::SetBool>::SharedFuture future) {
+        backend_selector_->setEnabled(true);
+        const auto response = future.get();
+        if (!response->success) {
+          backend_error_->setText(QString::fromStdString(response->message));
+          backend_error_->show();
+        }
+      });
   const int64_t request_id = pending.request_id;
   QTimer::singleShot(5000, this, [this, client, request_id]() {
     if (client->remove_pending_request(request_id)) {
@@ -221,8 +215,7 @@ void CollisionPanel::requestBackend(int backend)
   });
 }
 
-void CollisionPanel::loadRobot(const std_msgs::msg::String::SharedPtr message)
-{
+void CollisionPanel::loadRobot(const std_msgs::msg::String::SharedPtr message) {
   if (message->data == loaded_description_) {
     return;
   }
@@ -231,7 +224,7 @@ void CollisionPanel::loadRobot(const std_msgs::msg::String::SharedPtr message)
   loaded_description_.clear();
   joint_controls_.clear();
   while (joint_layout_->count() > 0) {
-    QLayoutItem * item = joint_layout_->takeAt(0);
+    QLayoutItem *item = joint_layout_->takeAt(0);
     delete item->widget();
     delete item;
   }
@@ -240,28 +233,28 @@ void CollisionPanel::loadRobot(const std_msgs::msg::String::SharedPtr message)
     robot_label_->setText("Invalid robot description. Joint publishing stopped.");
     return;
   }
-  // Validate all joints before creating controls, so unsupported robots cannot publish partial states.
-  for (const auto & entry : robot.joints_) {
-    const urdf::Joint & joint = *entry.second;
+  // Validate all joints before creating controls, so unsupported robots cannot publish partial
+  // states.
+  for (const auto &entry : robot.joints_) {
+    const urdf::Joint &joint = *entry.second;
     if (joint.type == urdf::Joint::FIXED) {
       continue;
     }
-    if (joint.mimic || (joint.type != urdf::Joint::REVOLUTE &&
-      joint.type != urdf::Joint::CONTINUOUS && joint.type != urdf::Joint::PRISMATIC))
-    {
+    if (joint.mimic ||
+        (joint.type != urdf::Joint::REVOLUTE && joint.type != urdf::Joint::CONTINUOUS &&
+         joint.type != urdf::Joint::PRISMATIC)) {
       robot_label_->setText("Unsupported joint: " + QString::fromStdString(joint.name));
       return;
     }
     if (joint.type != urdf::Joint::CONTINUOUS &&
-      (!joint.limits || !std::isfinite(joint.limits->lower) ||
-      !std::isfinite(joint.limits->upper) || joint.limits->lower > joint.limits->upper))
-    {
+        (!joint.limits || !std::isfinite(joint.limits->lower) ||
+         !std::isfinite(joint.limits->upper) || joint.limits->lower > joint.limits->upper)) {
       robot_label_->setText("Invalid limits for " + QString::fromStdString(joint.name));
       return;
     }
   }
-  for (const auto & entry : robot.joints_) {
-    const urdf::Joint & joint = *entry.second;
+  for (const auto &entry : robot.joints_) {
+    const urdf::Joint &joint = *entry.second;
     if (joint.type == urdf::Joint::FIXED) {
       continue;
     }
@@ -278,19 +271,18 @@ void CollisionPanel::loadRobot(const std_msgs::msg::String::SharedPtr message)
   robot_label_->setText(QString::fromStdString(robot.getName()) + " — joint positions");
 }
 
-void CollisionPanel::addJoint(
-  const std::string & name, double minimum, double maximum, bool prismatic)
-{
-  auto * row = new QWidget(this);
-  auto * row_layout = new QHBoxLayout(row);
+void CollisionPanel::addJoint(const std::string &name, double minimum, double maximum,
+                              bool prismatic) {
+  auto *row = new QWidget(this);
+  auto *row_layout = new QHBoxLayout(row);
   row_layout->setContentsMargins(0, 0, 0, 0);
-  auto * name_label = new QLabel(QString::fromStdString(name), row);
+  auto *name_label = new QLabel(QString::fromStdString(name), row);
   name_label->setMinimumWidth(55);
   row_layout->addWidget(name_label);
-  auto * slider = new QSlider(Qt::Horizontal, row);
+  auto *slider = new QSlider(Qt::Horizontal, row);
   slider->setObjectName(QString::fromStdString(name) + "_slider");
   slider->setRange(0, 1000);
-  auto * position = new QDoubleSpinBox(row);
+  auto *position = new QDoubleSpinBox(row);
   position->setObjectName(QString::fromStdString(name) + "_position");
   position->setDecimals(4);
   position->setRange(minimum, maximum);
@@ -307,43 +299,40 @@ void CollisionPanel::addJoint(
   joint_controls_.push_back(control);
   setJointPosition(joint_controls_.back(), 0.0);
 
-  connect(slider, &QSlider::valueChanged, this,
-    [position, minimum, maximum](int value) {
-      const QSignalBlocker blocker(position);
-      position->setValue(minimum + (maximum - minimum) * value / 1000.0);
-    });
+  connect(slider, &QSlider::valueChanged, this, [position, minimum, maximum](int value) {
+    const QSignalBlocker blocker(position);
+    position->setValue(minimum + (maximum - minimum) * value / 1000.0);
+  });
   connect(position, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
-    [slider, minimum, maximum](double value) {
-      const QSignalBlocker blocker(slider);
-      if (maximum > minimum) {
-        slider->setValue(static_cast<int>(std::round(1000.0 * (value - minimum) / (maximum - minimum))));
-      }
-    });
+          [slider, minimum, maximum](double value) {
+            const QSignalBlocker blocker(slider);
+            if (maximum > minimum) {
+              slider->setValue(
+                  static_cast<int>(std::round(1000.0 * (value - minimum) / (maximum - minimum))));
+            }
+          });
 }
 
-void CollisionPanel::setJointPosition(JointControl & control, double position)
-{
+void CollisionPanel::setJointPosition(JointControl &control, double position) {
   const QSignalBlocker slider_blocker(control.slider);
   const QSignalBlocker position_blocker(control.position);
   const double bounded = std::clamp(position, control.minimum, control.maximum);
   control.position->setValue(bounded);
   int slider_position = 0;
   if (control.maximum > control.minimum) {
-    slider_position = static_cast<int>(std::round(
-      1000.0 * (bounded - control.minimum) / (control.maximum - control.minimum)));
+    slider_position = static_cast<int>(
+        std::round(1000.0 * (bounded - control.minimum) / (control.maximum - control.minimum)));
   }
   control.slider->setValue(slider_position);
 }
 
-void CollisionPanel::resetJoints()
-{
-  for (JointControl & control : joint_controls_) {
+void CollisionPanel::resetJoints() {
+  for (JointControl &control : joint_controls_) {
     setJointPosition(control, 0.0);
   }
 }
 
-void CollisionPanel::receiveStatus(const std_msgs::msg::String::SharedPtr message)
-{
+void CollisionPanel::receiveStatus(const std_msgs::msg::String::SharedPtr message) {
   last_status_time_ = std::chrono::steady_clock::now();
   status_received_ = true;
   if (message->data == previous_status_) {
@@ -353,7 +342,7 @@ void CollisionPanel::receiveStatus(const std_msgs::msg::String::SharedPtr messag
   collision_table_->setRowCount(0);
   const QString text = QString::fromStdString(message->data);
   const QStringList lines = text.split('\n', Qt::SkipEmptyParts);
-  for (const QString & line : lines) {
+  for (const QString &line : lines) {
     QString type;
     QString pair;
     if (line.startsWith("SELF: ")) {
@@ -387,8 +376,7 @@ void CollisionPanel::receiveStatus(const std_msgs::msg::String::SharedPtr messag
   }
 }
 
-void CollisionPanel::receiveJointState(const sensor_msgs::msg::JointState::SharedPtr message)
-{
+void CollisionPanel::receiveJointState(const sensor_msgs::msg::JointState::SharedPtr message) {
   if (publishing_ || message->name.size() != message->position.size()) {
     return;
   }
@@ -396,7 +384,7 @@ void CollisionPanel::receiveJointState(const sensor_msgs::msg::JointState::Share
     if (!std::isfinite(message->position[index])) {
       continue;
     }
-    for (JointControl & control : joint_controls_) {
+    for (JointControl &control : joint_controls_) {
       if (control.name == message->name[index]) {
         setJointPosition(control, message->position[index]);
       }
@@ -404,25 +392,23 @@ void CollisionPanel::receiveJointState(const sensor_msgs::msg::JointState::Share
   }
 }
 
-void CollisionPanel::publishJointStates()
-{
+void CollisionPanel::publishJointStates() {
   sensor_msgs::msg::JointState message;
   message.header.stamp = node_->now();
-  for (const JointControl & control : joint_controls_) {
+  for (const JointControl &control : joint_controls_) {
     message.name.push_back(control.name);
     message.position.push_back(control.position->value());
   }
   joint_publisher_->publish(message);
 }
 
-void CollisionPanel::update()
-{
+void CollisionPanel::update() {
   // Pause if another publisher is present, avoiding two sources fighting over joint positions.
   const bool external_publisher = node_->count_publishers("/joint_states") > 1;
   publishing_ = robot_loaded_ && publish_checkbox_->isChecked() && !external_publisher;
   executor_.spin_some();
   publishing_ = robot_loaded_ && publish_checkbox_->isChecked() && !external_publisher;
-  for (JointControl & control : joint_controls_) {
+  for (JointControl &control : joint_controls_) {
     control.slider->setEnabled(publishing_);
     control.position->setEnabled(publishing_);
   }
@@ -438,8 +424,7 @@ void CollisionPanel::update()
     publishJointStates();
   }
   if (status_received_ &&
-    std::chrono::steady_clock::now() - last_status_time_ > std::chrono::seconds(2))
-  {
+      std::chrono::steady_clock::now() - last_status_time_ > std::chrono::seconds(2)) {
     status_label_->setText("Collision status unavailable (no update for 2 seconds)");
     status_label_->setStyleSheet("");
     collision_table_->setRowCount(0);
@@ -447,6 +432,6 @@ void CollisionPanel::update()
     status_received_ = false;
   }
 }
-}  // namespace roscon_rviz_plugins
+} // namespace roscon_rviz_plugins
 
 PLUGINLIB_EXPORT_CLASS(roscon_rviz_plugins::CollisionPanel, rviz_common::Panel)

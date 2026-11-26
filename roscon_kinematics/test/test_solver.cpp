@@ -31,7 +31,8 @@ TEST(Singularity, MatrixFactorMatchesSingularValueBound) {
   EXPECT_LT(roscon_kinematics::factor_residual(jac, factor, 0.2).norm(), 1e-12);
   jac(5, 5) = 0.0;
   // A negative diagonal cannot equal a diagonal of L L^T.
-  EXPECT_LT(roscon_kinematics::factor_residual(jac, Eigen::Matrix<double, 6, 6>::Zero(), 0.2)[20], 0.0);
+  EXPECT_LT(roscon_kinematics::factor_residual(jac, Eigen::Matrix<double, 6, 6>::Zero(), 0.2)[20],
+            0.0);
 }
 TEST(Solver, ReachesNearbyPoseAndHonorsConstraints) {
   roscon_kinematics::Settings settings;
@@ -76,5 +77,6 @@ TEST(Solver, InvalidInputIsRejected) {
   EXPECT_THROW(roscon_kinematics::solve(robot, target, bad, settings), std::runtime_error);
   target.rotation.setZero();
   EXPECT_THROW(roscon_kinematics::solve(robot, target, seed(), settings), std::runtime_error);
-  EXPECT_THROW(roscon_kinematics::Robot(test_robot(), "missing", "link5", 0.01), std::runtime_error);
+  EXPECT_THROW(roscon_kinematics::Robot(test_robot(), "missing", "link5", 0.01),
+               std::runtime_error);
 }

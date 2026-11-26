@@ -18,34 +18,26 @@ find_package(Qt5 REQUIRED COMPONENTS Widgets)
 add_library(collision_panel SHARED
   src/collision_panel.cpp
   include/roscon_rviz_plugins/collision_panel.hpp)
-target_include_directories(collision_panel PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(collision_panel rclcpp rviz_common pluginlib sensor_msgs std_msgs std_srvs urdf)
-target_link_libraries(collision_panel Qt5::Widgets)
-target_compile_options(collision_panel PRIVATE -Wall -Wextra -Wpedantic)
 add_library(kinematics_panel SHARED
   src/kinematics_panel.cpp
   include/roscon_rviz_plugins/kinematics_panel.hpp)
-target_include_directories(kinematics_panel PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(kinematics_panel rclcpp rviz_common pluginlib sensor_msgs geometry_msgs std_msgs std_srvs urdf tf2 roscon_msgs)
-target_link_libraries(kinematics_panel Qt5::Widgets)
-target_compile_options(kinematics_panel PRIVATE -Wall -Wextra -Wpedantic)
-install(TARGETS kinematics_panel LIBRARY DESTINATION lib)
 add_library(planner_panel SHARED
   src/planner_panel.cpp
   include/roscon_rviz_plugins/planner_panel.hpp)
-target_include_directories(planner_panel PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(planner_panel rclcpp rviz_common pluginlib tf2 roscon_msgs sensor_msgs geometry_msgs std_msgs std_srvs)
-target_link_libraries(planner_panel Qt5::Widgets)
-target_compile_options(planner_panel PRIVATE -Wall -Wextra -Wpedantic)
-install(TARGETS planner_panel LIBRARY DESTINATION lib)
+# Shared Qt/plugin build settings; each panel keeps its own ROS dependencies.
+foreach(panel collision_panel kinematics_panel planner_panel)
+  target_include_directories(${panel} PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>)
+  target_link_libraries(${panel} Qt5::Widgets)
+  target_compile_options(${panel} PRIVATE -Wall -Wextra -Wpedantic)
+endforeach()
+install(TARGETS collision_panel kinematics_panel planner_panel LIBRARY DESTINATION lib)
+
 pluginlib_export_plugin_description_file(rviz_common plugins.xml)
-install(TARGETS collision_panel LIBRARY DESTINATION lib)
 install(DIRECTORY include/ DESTINATION include)
 install(FILES LICENSE DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)

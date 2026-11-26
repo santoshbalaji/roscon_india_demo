@@ -48,7 +48,8 @@ ament_target_dependencies(collision_node rclcpp ament_index_cpp sensor_msgs std_
 target_link_libraries(collision_node fcl assimp::assimp yaml-cpp gpu_spheres sphere_model)
 target_compile_options(collision_node PRIVATE -Wall -Wextra -Wpedantic)
 install(TARGETS collision_node DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch config rviz DESTINATION share/${PROJECT_NAME})
+install(DIRECTORY launch config rviz DESTINATION share/${PROJECT_NAME}
+  PATTERN "__pycache__" EXCLUDE)
 install(FILES LICENSE DESTINATION share/${PROJECT_NAME})
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)

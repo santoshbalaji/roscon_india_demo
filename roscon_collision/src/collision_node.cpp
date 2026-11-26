@@ -1,33 +1,31 @@
 #include "roscon_collision/geometry.hpp"
 #include "roscon_collision/gpu_spheres.hpp"
-#include "roscon_collision/sphere_model.hpp"
 #include "roscon_collision/sdf_model.hpp"
 #include "roscon_collision/sdf_visualization.hpp"
+#include "roscon_collision/sphere_model.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <functional>
 #include <map>
-#include <set>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <utility>
-#include <vector>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
+#include <set>
+#include <sstream>
 #include <std_msgs/msg/string.hpp>
 #include <std_srvs/srv/set_bool.hpp>
 #include <std_srvs/srv/trigger.hpp>
+#include <stdexcept>
+#include <string>
 #include <urdf/model.h>
+#include <utility>
+#include <vector>
 #include <visualization_msgs/msg/marker_array.hpp>
 #include <yaml-cpp/yaml.h>
 
-namespace roscon_collision
-{
-struct Body
-{
+namespace roscon_collision {
+struct Body {
   std::string name;
   std::string link_name;
   Shape shape;
@@ -37,11 +35,9 @@ struct Body
   bool environment_collision = false;
 };
 
-class CollisionNode : public rclcpp::Node
-{
+class CollisionNode : public rclcpp::Node {
 public:
-  CollisionNode() : Node("roscon_collision")
-  {
+  CollisionNode() : Node("roscon_collision") {
     const std::string robot_description = declare_parameter<std::string>("robot_description", "");
     const std::string environment_file = declare_parameter<std::string>("environment_file", "");
     const double update_rate = declare_parameter<double>("update_rate", 20.0);
@@ -68,87 +64,79 @@ public:
     }
 
     marker_publisher_ = create_publisher<visualization_msgs::msg::MarkerArray>(
-      "collision_markers", rclcpp::QoS(1).transient_local());
-    status_publisher_ = create_publisher<std_msgs::msg::String>(
-      "collision_status", rclcpp::QoS(1).transient_local());
+        "collision_markers", rclcpp::QoS(1).transient_local());
+    status_publisher_ = create_publisher<std_msgs::msg::String>("collision_status",
+                                                                rclcpp::QoS(1).transient_local());
     sphere_marker_publisher_ = create_publisher<visualization_msgs::msg::MarkerArray>(
-      "sphere_markers", rclcpp::QoS(1).transient_local());
+        "sphere_markers", rclcpp::QoS(1).transient_local());
     sdf_marker_publisher_ = create_publisher<visualization_msgs::msg::MarkerArray>(
-      "sdf_markers", rclcpp::QoS(1).transient_local());
-    backend_publisher_ = create_publisher<std_msgs::msg::String>(
-      "collision_backend", rclcpp::QoS(1).transient_local());
+        "sdf_markers", rclcpp::QoS(1).transient_local());
+    backend_publisher_ = create_publisher<std_msgs::msg::String>("collision_backend",
+                                                                 rclcpp::QoS(1).transient_local());
     backend_service_ = create_service<std_srvs::srv::SetBool>(
-      "~/use_gpu_spheres", [this](
-        const std_srvs::srv::SetBool::Request::SharedPtr request,
-        std_srvs::srv::SetBool::Response::SharedPtr response) {
-        try {
-          if (request->data) {
-            prepareGpu();
-            backend_ = "gpu_spheres";
-          } else {
-            backend_ = "fcl";
+        "~/use_gpu_spheres", [this](const std_srvs::srv::SetBool::Request::SharedPtr request,
+                                    std_srvs::srv::SetBool::Response::SharedPtr response) {
+          try {
+            if (request->data) {
+              prepareGpu();
+              backend_ = "gpu_spheres";
+            } else {
+              backend_ = "fcl";
+            }
+            response->success = true;
+            response->message = "Active backend: " + backend_;
+          } catch (const std::exception &exception) {
+            response->success = false;
+            response->message = exception.what();
           }
-          response->success = true;
-          response->message = "Active backend: " + backend_;
-        } catch (const std::exception & exception) {
-          response->success = false;
-          response->message = exception.what();
-        }
-        publishBackend();
-      });
+          publishBackend();
+        });
     sdf_backend_service_ = create_service<std_srvs::srv::SetBool>(
-      "~/use_sdf", [this](
-        const std_srvs::srv::SetBool::Request::SharedPtr request,
-        std_srvs::srv::SetBool::Response::SharedPtr response) {
-        try {
-          if (request->data) {
-            prepareSdf();
-            backend_ = "gpu_sdf";
-          } else {
-            backend_ = "fcl";
+        "~/use_sdf", [this](const std_srvs::srv::SetBool::Request::SharedPtr request,
+                            std_srvs::srv::SetBool::Response::SharedPtr response) {
+          try {
+            if (request->data) {
+              prepareSdf();
+              backend_ = "gpu_sdf";
+            } else {
+              backend_ = "fcl";
+            }
+            response->success = true;
+            response->message = "Active backend: " + backend_;
+          } catch (const std::exception &exception) {
+            response->success = false;
+            response->message = exception.what();
           }
-          response->success = true;
-          response->message = "Active backend: " + backend_;
-        } catch (const std::exception & exception) {
-          response->success = false;
-          response->message = exception.what();
-        }
-        publishBackend();
-      });
+          publishBackend();
+        });
     sdf_validation_service_ = create_service<std_srvs::srv::Trigger>(
-      "~/validate_sdf", [this](
-        const std_srvs::srv::Trigger::Request::SharedPtr,
-        std_srvs::srv::Trigger::Response::SharedPtr response) {
-        validateSdf(*response);
-      });
+        "~/validate_sdf",
+        [this](const std_srvs::srv::Trigger::Request::SharedPtr,
+               std_srvs::srv::Trigger::Response::SharedPtr response) { validateSdf(*response); });
     validation_service_ = create_service<std_srvs::srv::Trigger>(
-      "~/validate_spheres", [this](
-        const std_srvs::srv::Trigger::Request::SharedPtr,
-        std_srvs::srv::Trigger::Response::SharedPtr response) {
-        validateSpheres(*response);
-      });
+        "~/validate_spheres", [this](const std_srvs::srv::Trigger::Request::SharedPtr,
+                                     std_srvs::srv::Trigger::Response::SharedPtr response) {
+          validateSpheres(*response);
+        });
     publishBackend();
     joint_subscription_ = create_subscription<sensor_msgs::msg::JointState>(
-      "joint_states", rclcpp::SensorDataQoS(),
-      std::bind(&CollisionNode::receiveJointState, this, std::placeholders::_1));
-    timer_ = create_wall_timer(
-      std::chrono::duration<double>(1.0 / update_rate),
-      std::bind(&CollisionNode::update, this));
+        "joint_states", rclcpp::SensorDataQoS(),
+        std::bind(&CollisionNode::receiveJointState, this, std::placeholders::_1));
+    timer_ = create_wall_timer(std::chrono::duration<double>(1.0 / update_rate),
+                               std::bind(&CollisionNode::update, this));
     RCLCPP_INFO(get_logger(), "Loaded %zu robot collision shapes and %zu environment objects",
-      robot_bodies_.size(), environment_bodies_.size());
+                robot_bodies_.size(), environment_bodies_.size());
   }
 
 private:
   // Adjacent links share a mechanical joint and are excluded from self checks.
   // Additional exclusions must be explicitly listed in the environment file.
-  void loadRobot()
-  {
-    for (const auto & joint_entry : robot_.joints_) {
-      const urdf::Joint & joint = *joint_entry.second;
-      if (joint.mimic || (joint.type != urdf::Joint::FIXED &&
-        joint.type != urdf::Joint::REVOLUTE && joint.type != urdf::Joint::CONTINUOUS &&
-        joint.type != urdf::Joint::PRISMATIC))
-      {
+  void loadRobot() {
+    for (const auto &joint_entry : robot_.joints_) {
+      const urdf::Joint &joint = *joint_entry.second;
+      if (joint.mimic ||
+          (joint.type != urdf::Joint::FIXED && joint.type != urdf::Joint::REVOLUTE &&
+           joint.type != urdf::Joint::CONTINUOUS && joint.type != urdf::Joint::PRISMATIC)) {
         throw std::runtime_error("Unsupported or mimic joint: " + joint.name);
       }
       if (joint.type != urdf::Joint::FIXED) {
@@ -160,10 +148,10 @@ private:
       }
       ignored_pairs_.insert(orderedPair(joint.parent_link_name, joint.child_link_name));
     }
-    for (const auto & link_entry : robot_.links_) {
-      const urdf::Link & link = *link_entry.second;
+    for (const auto &link_entry : robot_.links_) {
+      const urdf::Link &link = *link_entry.second;
       for (std::size_t index = 0; index < link.collision_array.size(); ++index) {
-        const urdf::Collision & collision = *link.collision_array[index];
+        const urdf::Collision &collision = *link.collision_array[index];
         if (!collision.geometry) {
           throw std::runtime_error("Missing collision geometry on " + link.name);
         }
@@ -181,17 +169,15 @@ private:
     }
   }
 
-  static std::pair<std::string, std::string> orderedPair(
-    const std::string & first, const std::string & second)
-  {
+  static std::pair<std::string, std::string> orderedPair(const std::string &first,
+                                                         const std::string &second) {
     if (first < second) {
       return {first, second};
     }
     return {second, first};
   }
 
-  static urdf::Vector3 readVector(const YAML::Node & value, const std::string & field)
-  {
+  static urdf::Vector3 readVector(const YAML::Node &value, const std::string &field) {
     if (!value.IsSequence() || value.size() != 3) {
       throw std::runtime_error(field + " must contain three numbers");
     }
@@ -202,14 +188,13 @@ private:
     return vector;
   }
 
-  void loadEnvironment(const std::string & path)
-  {
+  void loadEnvironment(const std::string &path) {
     const YAML::Node configuration = YAML::LoadFile(path);
     const YAML::Node exclusions = configuration["disabled_self_collisions"];
     if (exclusions && !exclusions.IsSequence()) {
       throw std::runtime_error("disabled_self_collisions must be a list");
     }
-    for (const YAML::Node & pair : exclusions) {
+    for (const YAML::Node &pair : exclusions) {
       if (!pair.IsSequence() || pair.size() != 2) {
         throw std::runtime_error("Each disabled self-collision pair needs two link names");
       }
@@ -222,10 +207,11 @@ private:
     }
     const YAML::Node objects = configuration["objects"];
     if (!objects.IsSequence()) {
-      throw std::runtime_error("Environment YAML needs an objects list (use [] for an empty scene)");
+      throw std::runtime_error(
+          "Environment YAML needs an objects list (use [] for an empty scene)");
     }
     std::set<std::string> names;
-    for (const YAML::Node & entry : objects) {
+    for (const YAML::Node &entry : objects) {
       Body body;
       body.name = entry["name"].as<std::string>();
       if (body.name.empty() || !names.insert(body.name).second) {
@@ -263,14 +249,13 @@ private:
         pose.rotation.setFromRPY(angles.x, angles.y, angles.z);
       }
       body.local_transform = poseToTransform(pose);
-      body.object = std::make_shared<fcl::CollisionObjectd>(
-        body.shape.geometry, body.local_transform);
+      body.object =
+          std::make_shared<fcl::CollisionObjectd>(body.shape.geometry, body.local_transform);
       environment_bodies_.push_back(body);
     }
   }
 
-  void receiveJointState(const sensor_msgs::msg::JointState::SharedPtr message)
-  {
+  void receiveJointState(const sensor_msgs::msg::JointState::SharedPtr message) {
     if (message->name.size() != message->position.size()) {
       RCLCPP_WARN(get_logger(), "Ignoring JointState with mismatched name and position arrays");
       return;
@@ -291,11 +276,10 @@ private:
   }
 
   // URDF forward kinematics keeps every collision object in one coherent snapshot.
-  void computeLinkTransforms(
-    const urdf::LinkConstSharedPtr & link, const fcl::Transform3d & parent_transform)
-  {
+  void computeLinkTransforms(const urdf::LinkConstSharedPtr &link,
+                             const fcl::Transform3d &parent_transform) {
     link_transforms_[link->name] = parent_transform;
-    for (const urdf::JointSharedPtr & joint : link->child_joints) {
+    for (const urdf::JointSharedPtr &joint : link->child_joints) {
       fcl::Transform3d motion = fcl::Transform3d::Identity();
       if (joint->type != urdf::Joint::FIXED) {
         const double position = joint_positions_.at(joint->name);
@@ -306,22 +290,20 @@ private:
           motion.linear() = Eigen::AngleAxisd(position, axis.normalized()).toRotationMatrix();
         }
       }
-      const fcl::Transform3d child_transform = parent_transform *
-        poseToTransform(joint->parent_to_joint_origin_transform) * motion;
+      const fcl::Transform3d child_transform =
+          parent_transform * poseToTransform(joint->parent_to_joint_origin_transform) * motion;
       computeLinkTransforms(robot_.getLink(joint->child_link_name), child_transform);
     }
   }
 
-  static bool collides(const Body & first, const Body & second)
-  {
+  static bool collides(const Body &first, const Body &second) {
     fcl::CollisionRequestd request;
     fcl::CollisionResultd result;
     fcl::collide(first.object.get(), second.object.get(), request, result);
     return result.isCollision();
   }
 
-  void update()
-  {
+  void update() {
     if (received_joints_.size() != joint_positions_.size()) {
       std_msgs::msg::String status;
       status.data = "Waiting for all movable joints on /joint_states";
@@ -329,13 +311,13 @@ private:
       return;
     }
     computeLinkTransforms(robot_.getRoot(), fcl::Transform3d::Identity());
-    for (Body & body : robot_bodies_) {
+    for (Body &body : robot_bodies_) {
       body.self_collision = false;
       body.environment_collision = false;
       body.object->setTransform(link_transforms_.at(body.link_name) * body.local_transform);
       body.object->computeAABB();
     }
-    for (Body & body : environment_bodies_) {
+    for (Body &body : environment_bodies_) {
       body.environment_collision = false;
     }
     std::set<std::pair<int, int>> selected_pairs;
@@ -357,7 +339,7 @@ private:
       } else {
         selected_pairs = checkFclPairs();
       }
-    } catch (const std::exception & exception) {
+    } catch (const std::exception &exception) {
       std_msgs::msg::String error;
       error.data = "Collision check unavailable: " + std::string(exception.what());
       status_publisher_->publish(error);
@@ -370,7 +352,7 @@ private:
     if (collision_pairs.empty()) {
       summary << "Collision free";
     } else {
-      for (const std::string & pair : collision_pairs) {
+      for (const std::string &pair : collision_pairs) {
         summary << pair << '\n';
       }
     }
@@ -387,12 +369,10 @@ private:
     publishBackend();
   }
 
-  void appendMarkers(
-    const std::vector<Body> & bodies, bool robot,
-    visualization_msgs::msg::MarkerArray & markers)
-  {
+  void appendMarkers(const std::vector<Body> &bodies, bool robot,
+                     visualization_msgs::msg::MarkerArray &markers) {
     for (std::size_t index = 0; index < bodies.size(); ++index) {
-      const Body & body = bodies[index];
+      const Body &body = bodies[index];
       visualization_msgs::msg::Marker marker = body.shape.marker;
       marker.header.frame_id = fixed_frame_;
       marker.header.stamp = now();
@@ -401,7 +381,7 @@ private:
       marker.pose = transformToPose(body.object->getTransform());
       marker.color.a = 1.0;
       if (backend_ == "gpu_sdf" && !robot) {
-        marker.color.a = 0.18;  // Show the distance slice inside the environment surface.
+        marker.color.a = 0.18; // Show the distance slice inside the environment surface.
       }
       if (body.self_collision && body.environment_collision) {
         marker.color.r = 1.0;
@@ -428,8 +408,7 @@ private:
     }
   }
 
-  void publishMarkers()
-  {
+  void publishMarkers() {
     visualization_msgs::msg::MarkerArray markers;
     visualization_msgs::msg::Marker clear;
     clear.action = visualization_msgs::msg::Marker::DELETEALL;
@@ -451,21 +430,20 @@ private:
     marker_publisher_->publish(markers);
   }
 
-  Body & bodyAt(int index)
-  {
+  Body &bodyAt(int index) {
     if (index < static_cast<int>(robot_bodies_.size())) {
       return robot_bodies_.at(index);
     }
     return environment_bodies_.at(index - robot_bodies_.size());
   }
 
-  void buildSphereModel(double radius)
-  {
+  void buildSphereModel(double radius) {
     const int body_count = robot_bodies_.size() + environment_bodies_.size();
     std::vector<int> starts;
     for (int index = 0; index < body_count; ++index) {
       starts.push_back(local_spheres_.size());
-      const std::vector<Sphere> spheres = makeSphereModel(*bodyAt(index).shape.geometry, radius, index);
+      const std::vector<Sphere> spheres =
+          makeSphereModel(*bodyAt(index).shape.geometry, radius, index);
       local_spheres_.insert(local_spheres_.end(), spheres.begin(), spheres.end());
       if (local_spheres_.size() > 10000) {
         throw std::runtime_error("Scene exceeds 10000 spheres; increase sphere_radius");
@@ -475,16 +453,18 @@ private:
     for (int first = 0; first < static_cast<int>(robot_bodies_.size()); ++first) {
       for (int second = first + 1; second < body_count; ++second) {
         if (second < static_cast<int>(robot_bodies_.size()) &&
-          (bodyAt(first).link_name == bodyAt(second).link_name ||
-          ignored_pairs_.count(orderedPair(bodyAt(first).link_name, bodyAt(second).link_name)) > 0))
-        {
+            (bodyAt(first).link_name == bodyAt(second).link_name ||
+             ignored_pairs_.count(orderedPair(bodyAt(first).link_name, bodyAt(second).link_name)) >
+                 0)) {
           continue;
         }
         allowed_body_pairs_.emplace_back(first, second);
         for (int first_sphere = starts[first]; first_sphere < starts[first + 1]; ++first_sphere) {
-          for (int second_sphere = starts[second]; second_sphere < starts[second + 1]; ++second_sphere) {
+          for (int second_sphere = starts[second]; second_sphere < starts[second + 1];
+               ++second_sphere) {
             if (sphere_pairs_.size() >= 5000000) {
-              throw std::runtime_error("Scene exceeds 5000000 sphere pairs; increase sphere_radius");
+              throw std::runtime_error(
+                  "Scene exceeds 5000000 sphere pairs; increase sphere_radius");
             }
             sphere_pairs_.push_back({first_sphere, second_sphere});
           }
@@ -493,17 +473,16 @@ private:
     }
   }
 
-  void prepareGpu()
-  {
+  void prepareGpu() {
     if (!gpu_ready_) {
       gpu_device_ = GpuSpheres::deviceName();
-      gpu_.initialize(local_spheres_, sphere_pairs_, robot_bodies_.size() + environment_bodies_.size());
+      gpu_.initialize(local_spheres_, sphere_pairs_,
+                      robot_bodies_.size() + environment_bodies_.size());
       gpu_ready_ = true;
     }
   }
 
-  void prepareSdf()
-  {
+  void prepareSdf() {
     if (sdf_ready_) {
       return;
     }
@@ -513,30 +492,33 @@ private:
     sdf_objects_.clear();
     sdf_triangles_.clear();
     sdf_slices_.markers.clear();
-    for (const Sphere & sphere : local_spheres_) {
+    for (const Sphere &sphere : local_spheres_) {
       if (sphere.body < static_cast<int>(robot_bodies_.size())) {
         robot_spheres_.push_back(sphere);
       }
     }
     // Robot spheres are the prefix of local_spheres_, so their original indices remain valid.
-    for (const SpherePair & pair : sphere_pairs_) {
+    for (const SpherePair &pair : sphere_pairs_) {
       if (pair.second < static_cast<int>(robot_spheres_.size())) {
         self_sphere_pairs_.push_back(pair);
       }
     }
-    for (const Body & body : environment_bodies_) {
+    for (const Body &body : environment_bodies_) {
       try {
-        sdf_objects_.push_back(makeSdfObject(*body.shape.geometry, body.local_transform, sdf_triangles_));
-      } catch (const std::exception & exception) {
+        sdf_objects_.push_back(
+            makeSdfObject(*body.shape.geometry, body.local_transform, sdf_triangles_));
+      } catch (const std::exception &exception) {
         throw std::runtime_error("Environment object " + body.name + ": " + exception.what());
       }
     }
-    gpu_self_.initialize(robot_spheres_, self_sphere_pairs_, robot_bodies_.size() + environment_bodies_.size());
+    gpu_self_.initialize(robot_spheres_, self_sphere_pairs_,
+                         robot_bodies_.size() + environment_bodies_.size());
     gpu_sdf_.initialize(sdf_objects_, sdf_triangles_, robot_spheres_.size());
     for (std::size_t index = 0; index < environment_bodies_.size(); ++index) {
-      const Body & body = environment_bodies_[index];
-      auto slice = makeSdfSlice(sdf_objects_[index], sdf_triangles_,
-        body.shape.geometry->aabb_local, body.local_transform, sdf_cell_size_, sdf_padding_);
+      const Body &body = environment_bodies_[index];
+      auto slice =
+          makeSdfSlice(sdf_objects_[index], sdf_triangles_, body.shape.geometry->aabb_local,
+                       body.local_transform, sdf_cell_size_, sdf_padding_);
       slice.id = index;
       slice.header.frame_id = fixed_frame_;
       sdf_slices_.markers.push_back(slice);
@@ -544,8 +526,7 @@ private:
     sdf_ready_ = true;
   }
 
-  std::vector<SphereTransform> currentTransforms()
-  {
+  std::vector<SphereTransform> currentTransforms() {
     std::vector<SphereTransform> transforms;
     const int body_count = robot_bodies_.size() + environment_bodies_.size();
     for (int index = 0; index < body_count; ++index) {
@@ -554,10 +535,9 @@ private:
     return transforms;
   }
 
-  std::set<std::pair<int, int>> checkFclPairs()
-  {
+  std::set<std::pair<int, int>> checkFclPairs() {
     std::set<std::pair<int, int>> pairs;
-    for (const auto & pair : allowed_body_pairs_) {
+    for (const auto &pair : allowed_body_pairs_) {
       if (collides(bodyAt(pair.first), bodyAt(pair.second))) {
         pairs.insert(pair);
       }
@@ -565,25 +545,23 @@ private:
     return pairs;
   }
 
-  std::set<std::pair<int, int>> sphereBodyPairs(
-    const SphereResults & result, const std::vector<SpherePair> & candidate_pairs)
-  {
+  std::set<std::pair<int, int>> sphereBodyPairs(const SphereResults &result,
+                                                const std::vector<SpherePair> &candidate_pairs) {
     std::set<std::pair<int, int>> pairs;
     for (std::size_t index = 0; index < candidate_pairs.size(); ++index) {
       if (result.collisions.at(index)) {
-        const SpherePair & pair = candidate_pairs[index];
+        const SpherePair &pair = candidate_pairs[index];
         pairs.emplace(local_spheres_[pair.first].body, local_spheres_[pair.second].body);
       }
     }
     return pairs;
   }
 
-  std::set<std::string> describePairs(const std::set<std::pair<int, int>> & pairs)
-  {
+  std::set<std::string> describePairs(const std::set<std::pair<int, int>> &pairs) {
     std::set<std::string> descriptions;
-    for (const auto & pair : pairs) {
-      const Body & first = bodyAt(pair.first);
-      const Body & second = bodyAt(pair.second);
+    for (const auto &pair : pairs) {
+      const Body &first = bodyAt(pair.first);
+      const Body &second = bodyAt(pair.second);
       if (pair.second < static_cast<int>(robot_bodies_.size())) {
         descriptions.insert("SELF: " + first.link_name + " <-> " + second.link_name);
       } else {
@@ -593,11 +571,10 @@ private:
     return descriptions;
   }
 
-  void applyCollisions(const std::set<std::pair<int, int>> & pairs)
-  {
+  void applyCollisions(const std::set<std::pair<int, int>> &pairs) {
     std::set<std::string> self_links;
     std::set<std::string> environment_links;
-    for (const auto & pair : pairs) {
+    for (const auto &pair : pairs) {
       if (pair.second < static_cast<int>(robot_bodies_.size())) {
         self_links.insert(bodyAt(pair.first).link_name);
         self_links.insert(bodyAt(pair.second).link_name);
@@ -606,22 +583,21 @@ private:
         bodyAt(pair.second).environment_collision = true;
       }
     }
-    for (Body & body : robot_bodies_) {
+    for (Body &body : robot_bodies_) {
       body.self_collision = self_links.count(body.link_name) > 0;
       body.environment_collision = environment_links.count(body.link_name) > 0;
     }
   }
 
-  void publishBackend()
-  {
+  void publishBackend() {
     std_msgs::msg::String status;
     if (backend_ == "gpu_sdf") {
       status.data = backend_ + " | robot_spheres=" + std::to_string(robot_spheres_.size()) +
-        " | sdf_objects=" + std::to_string(sdf_objects_.size()) +
-        " | self_pairs=" + std::to_string(self_sphere_pairs_.size());
+                    " | sdf_objects=" + std::to_string(sdf_objects_.size()) +
+                    " | self_pairs=" + std::to_string(self_sphere_pairs_.size());
     } else {
       status.data = backend_ + " | spheres=" + std::to_string(local_spheres_.size()) +
-        " | pairs=" + std::to_string(sphere_pairs_.size());
+                    " | pairs=" + std::to_string(sphere_pairs_.size());
     }
     if (backend_ == "gpu_spheres") {
       status.data += " | view=spheres";
@@ -636,8 +612,7 @@ private:
     backend_publisher_->publish(status);
   }
 
-  void clearMarkers()
-  {
+  void clearMarkers() {
     visualization_msgs::msg::MarkerArray markers;
     visualization_msgs::msg::Marker clear;
     clear.action = visualization_msgs::msg::Marker::DELETEALL;
@@ -647,16 +622,15 @@ private:
     sdf_marker_publisher_->publish(markers);
   }
 
-  void publishSphereMarkers()
-  {
+  void publishSphereMarkers() {
     visualization_msgs::msg::MarkerArray markers;
     visualization_msgs::msg::Marker clear;
     clear.action = visualization_msgs::msg::Marker::DELETEALL;
     markers.markers.push_back(clear);
     if (backend_ != "fcl") {
       for (std::size_t index = 0; index < last_sphere_results_.world_spheres.size(); ++index) {
-        const Sphere & sphere = last_sphere_results_.world_spheres[index];
-        const Body & body = bodyAt(sphere.body);
+        const Sphere &sphere = last_sphere_results_.world_spheres[index];
+        const Body &body = bodyAt(sphere.body);
         visualization_msgs::msg::Marker marker;
         marker.header.frame_id = fixed_frame_;
         marker.header.stamp = now();
@@ -694,8 +668,7 @@ private:
     sphere_marker_publisher_->publish(markers);
   }
 
-  void publishSdfMarkers()
-  {
+  void publishSdfMarkers() {
     if (backend_ == "gpu_sdf") {
       sdf_marker_publisher_->publish(sdf_slices_);
     } else {
@@ -707,8 +680,7 @@ private:
     }
   }
 
-  void validateSpheres(std_srvs::srv::Trigger::Response & response)
-  {
+  void validateSpheres(std_srvs::srv::Trigger::Response &response) {
     if (received_joints_.size() != joint_positions_.size()) {
       response.success = false;
       response.message = "Waiting for all joint positions";
@@ -718,7 +690,7 @@ private:
       prepareGpu();
       // Recompute from the current joint snapshot, even if the timer has not run yet.
       computeLinkTransforms(robot_.getRoot(), fcl::Transform3d::Identity());
-      for (Body & body : robot_bodies_) {
+      for (Body &body : robot_bodies_) {
         body.object->setTransform(link_transforms_.at(body.link_name) * body.local_transform);
         body.object->computeAABB();
       }
@@ -733,8 +705,8 @@ private:
       }
       double largest_center_error = 0.0;
       for (std::size_t index = 0; index < local_spheres_.size(); ++index) {
-        const Sphere & first = cpu.world_spheres[index];
-        const Sphere & second = gpu.world_spheres[index];
+        const Sphere &first = cpu.world_spheres[index];
+        const Sphere &second = gpu.world_spheres[index];
         const double error = std::hypot(first.x - second.x, first.y - second.y, first.z - second.z);
         largest_center_error = std::max(largest_center_error, error);
       }
@@ -742,31 +714,31 @@ private:
       const auto fcl_pairs = describePairs(checkFclPairs());
       std::size_t sphere_only = 0;
       std::size_t fcl_only = 0;
-      for (const std::string & pair : gpu_pairs) {
+      for (const std::string &pair : gpu_pairs) {
         if (fcl_pairs.count(pair) == 0) {
           ++sphere_only;
         }
       }
-      for (const std::string & pair : fcl_pairs) {
+      for (const std::string &pair : fcl_pairs) {
         if (gpu_pairs.count(pair) == 0) {
           ++fcl_only;
         }
       }
       response.success = mismatches == 0 && largest_center_error < 1e-9;
       std::ostringstream report;
-      report << "GPU / CPU sphere validation: " << mismatches << " mismatches in " << sphere_pairs_.size()
-        << " pairs; max center error " << largest_center_error << " m.\n"
-        << "Sphere approximation vs FCL: " << sphere_only << " sphere-only link/object pairs, "
-        << fcl_only << " FCL-only pairs. Bounding-box spheres can over-report collision.";
+      report << "GPU / CPU sphere validation: " << mismatches << " mismatches in "
+             << sphere_pairs_.size() << " pairs; max center error " << largest_center_error
+             << " m.\n"
+             << "Sphere approximation vs FCL: " << sphere_only << " sphere-only link/object pairs, "
+             << fcl_only << " FCL-only pairs. Bounding-box spheres can over-report collision.";
       response.message = report.str();
-    } catch (const std::exception & exception) {
+    } catch (const std::exception &exception) {
       response.success = false;
       response.message = exception.what();
     }
   }
 
-  void validateSdf(std_srvs::srv::Trigger::Response & response)
-  {
+  void validateSdf(std_srvs::srv::Trigger::Response &response) {
     if (received_joints_.size() != joint_positions_.size()) {
       response.success = false;
       response.message = "Waiting for all joint positions";
@@ -775,13 +747,14 @@ private:
     try {
       prepareSdf();
       computeLinkTransforms(robot_.getRoot(), fcl::Transform3d::Identity());
-      for (Body & body : robot_bodies_) {
+      for (Body &body : robot_bodies_) {
         body.object->setTransform(link_transforms_.at(body.link_name) * body.local_transform);
         body.object->computeAABB();
       }
       const auto transforms = currentTransforms();
       const SphereResults gpu_self = gpu_self_.check(transforms);
-      const SphereResults cpu_self = checkSpheresOnCpu(robot_spheres_, self_sphere_pairs_, transforms);
+      const SphereResults cpu_self =
+          checkSpheresOnCpu(robot_spheres_, self_sphere_pairs_, transforms);
       const SdfResults gpu = gpu_sdf_.check(gpu_self.world_spheres);
       const SdfResults cpu = checkSdfOnCpu(cpu_self.world_spheres, sdf_objects_, sdf_triangles_);
       std::size_t mismatches = 0;
@@ -795,15 +768,16 @@ private:
         if (gpu.collisions[index] != cpu.collisions[index]) {
           ++mismatches;
         }
-        maximum_error = std::max(maximum_error, std::abs(gpu.distances[index] - cpu.distances[index]));
+        maximum_error =
+            std::max(maximum_error, std::abs(gpu.distances[index] - cpu.distances[index]));
       }
       response.success = mismatches == 0 && maximum_error < 1e-9;
       std::ostringstream report;
       report << "GPU / CPU SDF validation: " << mismatches << " mismatches; "
-        << gpu.collisions.size() << " sphere/object checks; " << gpu_self.collisions.size()
-        << " self checks; max signed-distance error " << maximum_error << " m.";
+             << gpu.collisions.size() << " sphere/object checks; " << gpu_self.collisions.size()
+             << " self checks; max signed-distance error " << maximum_error << " m.";
       response.message = report.str();
-    } catch (const std::exception & exception) {
+    } catch (const std::exception &exception) {
       response.success = false;
       response.message = exception.what();
     }
@@ -850,15 +824,14 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_subscription_;
   rclcpp::TimerBase::SharedPtr timer_;
 };
-}  // namespace roscon_collision
+} // namespace roscon_collision
 
-int main(int argc, char ** argv)
-{
+int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
   int exit_code = 0;
   try {
     rclcpp::spin(std::make_shared<roscon_collision::CollisionNode>());
-  } catch (const std::exception & exception) {
+  } catch (const std::exception &exception) {
     RCLCPP_FATAL(rclcpp::get_logger("roscon_collision"), "%s", exception.what());
     exit_code = 1;
   }
